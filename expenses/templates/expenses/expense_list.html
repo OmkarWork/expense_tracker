@@ -1,0 +1,164 @@
+{% extends 'expenses/base.html' %}
+
+{% block title %}Expo- Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>Your Expenses</h2>
+    </div>
+    <div class="col-auto">
+        <a href="{% url 'expenses:add_expense' %}" class="btn btn-primary">Add Expense</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Expenses</h5>
+                <h3 class="card-text">{{ total }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>
+                    <div class="d-flex align-items-center">
+                        Date & Time
+                        <div class="ms-2">
+                            <a href="?sort=date" class="text-dark text-decoration-none">↑</a>
+                            <a href="?sort=-date" class="text-dark text-decoration-none">↓</a>
+                        </div>
+                    </div>
+                </th>
+                <th>
+                    <div class="d-flex align-items-center">
+                        Title
+                        <div class="ms-2">
+                            <a href="?sort=title" class="text-dark text-decoration-none">↑</a>
+                            <a href="?sort=-title" class="text-dark text-decoration-none">↓</a>
+                        </div>
+                    </div>
+                </th>
+                <th>
+                    <div class="d-flex align-items-center">
+                        Category
+                        <div class="ms-2">
+                            <a href="?sort=category" class="text-dark text-decoration-none">↑</a>
+                            <a href="?sort=-category" class="text-dark text-decoration-none">↓</a>
+                        </div>
+                    </div>
+                </th>
+                <th>
+                    <div class="d-flex align-items-center">
+                        Amount
+                        <div class="ms-2">
+                            <a href="?sort=amount" class="text-dark text-decoration-none">↑</a>
+                            <a href="?sort=-amount" class="text-dark text-decoration-none">↓</a>
+                        </div>
+                    </div>
+                </th>
+                <th>Description</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for expense in expenses %}
+            <tr>
+                <td>{{ expense.formatted_datetime }}</td>
+                <td>{{ expense.title }}</td>
+                <td>{{ expense.category.name|default:"Uncategorized" }}</td>
+                <td>{{ expense.formatted_amount }}</td>
+                <td>
+                    {% if expense.description %}
+                    <span class="text-truncate d-inline-block" style="max-width: 200px;" data-bs-toggle="tooltip" title="{{ expense.description }}">
+                        {{ expense.description }}
+                    </span>
+                    {% else %}
+                    <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger btn-sm" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#deleteModal{{ expense.id }}">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </td>
+            </tr>
+            <!-- Delete Modal for each expense -->
+            <div class="modal fade" id="deleteModal{{ expense.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Confirm Deletion</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Are you sure you want to delete this expense?</p>
+                            <div class="alert alert-info">
+                                <strong>Title:</strong> {{ expense.title }}<br>
+                                <strong>Amount:</strong> {{ expense.formatted_amount }}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <form action="{% url 'expenses:delete_expense' expense.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">No expenses found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+
+{% if messages %}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    {% for message in messages %}
+    <div class="toast show align-items-center text-white bg-{{ message.tags }} border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                {{ message }}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<script>
+// Auto-hide toasts after 3 seconds
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Auto-hide toasts
+    var toasts = document.querySelectorAll('.toast');
+    toasts.forEach(function(toast) {
+        setTimeout(function() {
+            toast.style.display = 'none';
+        }, 3000);
+    });
+});
+</script>
+{% endblock %}

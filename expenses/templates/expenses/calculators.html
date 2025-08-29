@@ -1,0 +1,214 @@
+{% extends 'expenses/base.html' %}
+
+{% block title %}Financial Calculators - Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4">Financial Calculators</h2>
+    
+    <div class="row">
+        <!-- Basic Calculator -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Basic Calculator</h5>
+                </div>
+                <div class="card-body">
+                    <div class="calculator">
+                        <input type="text" class="form-control mb-2" id="basicDisplay" readonly>
+                        <div class="row g-2">
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('7')">7</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('8')">8</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('9')">9</button></div>
+                            <div class="col-3"><button class="btn btn-warning w-100" onclick="appendToBasic('+')">+</button></div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('4')">4</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('5')">5</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('6')">6</button></div>
+                            <div class="col-3"><button class="btn btn-warning w-100" onclick="appendToBasic('-')">-</button></div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('1')">1</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('2')">2</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('3')">3</button></div>
+                            <div class="col-3"><button class="btn btn-warning w-100" onclick="appendToBasic('*')">×</button></div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('0')">0</button></div>
+                            <div class="col-3"><button class="btn btn-light w-100" onclick="appendToBasic('.')">.</button></div>
+                            <div class="col-3"><button class="btn btn-danger w-100" onclick="clearBasic()">C</button></div>
+                            <div class="col-3"><button class="btn btn-warning w-100" onclick="appendToBasic('/')">/</button></div>
+                        </div>
+                        <div class="row g-2 mt-1">
+                            <div class="col-12"><button class="btn btn-primary w-100" onclick="calculateBasic()">=</button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Split Bill Calculator -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Split Bill Calculator</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="totalAmount" class="form-label">Total Amount (₹)</label>
+                        <input type="number" class="form-control" id="totalAmount" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="numberOfPeople" class="form-label">Number of People</label>
+                        <input type="number" class="form-control" id="numberOfPeople" min="1">
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateSplit()">Calculate Split</button>
+                    <div class="mt-3" id="splitResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GST Calculator -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">GST Calculator</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="baseAmount" class="form-label">Base Amount (₹)</label>
+                        <input type="number" class="form-control" id="baseAmount" step="0.01">
+                    </div>
+                    <div class="mb-3">
+                        <label for="gstRate" class="form-label">GST Rate (%)</label>
+                        <select class="form-select" id="gstRate">
+                            <option value="5">5%</option>
+                            <option value="12">12%</option>
+                            <option value="18">18%</option>
+                            <option value="28">28%</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateGST()">Calculate GST</button>
+                    <div class="mt-3" id="gstResult"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- EMI Calculator -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">EMI Calculator</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="loanAmount" class="form-label">Loan Amount (₹)</label>
+                        <input type="number" class="form-control" id="loanAmount" step="1000">
+                    </div>
+                    <div class="mb-3">
+                        <label for="interestRate" class="form-label">Annual Interest Rate (%)</label>
+                        <input type="number" class="form-control" id="interestRate" step="0.1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="loanTerm" class="form-label">Loan Term (Months)</label>
+                        <input type="number" class="form-control" id="loanTerm" min="1">
+                    </div>
+                    <button class="btn btn-primary" onclick="calculateEMI()">Calculate EMI</button>
+                    <div class="mt-3" id="emiResult"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Basic Calculator
+let basicDisplay = document.getElementById('basicDisplay');
+
+function appendToBasic(value) {
+    basicDisplay.value += value;
+}
+
+function clearBasic() {
+    basicDisplay.value = '';
+}
+
+function calculateBasic() {
+    try {
+        basicDisplay.value = eval(basicDisplay.value);
+    } catch (e) {
+        basicDisplay.value = 'Error';
+    }
+}
+
+// Split Bill Calculator
+function calculateSplit() {
+    const total = parseFloat(document.getElementById('totalAmount').value);
+    const people = parseInt(document.getElementById('numberOfPeople').value);
+    const resultDiv = document.getElementById('splitResult');
+
+    if (isNaN(total) || isNaN(people) || people < 1) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">Please enter valid numbers</div>';
+        return;
+    }
+
+    const perPerson = total / people;
+    resultDiv.innerHTML = `
+        <div class="alert alert-success">
+            <p>Total Amount: ₹${total.toFixed(2)}</p>
+            <p>Each person pays: ₹${perPerson.toFixed(2)}</p>
+        </div>
+    `;
+}
+
+// GST Calculator
+function calculateGST() {
+    const baseAmount = parseFloat(document.getElementById('baseAmount').value);
+    const gstRate = parseFloat(document.getElementById('gstRate').value);
+    const resultDiv = document.getElementById('gstResult');
+
+    if (isNaN(baseAmount)) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">Please enter a valid amount</div>';
+        return;
+    }
+
+    const gstAmount = (baseAmount * gstRate) / 100;
+    const totalAmount = baseAmount + gstAmount;
+
+    resultDiv.innerHTML = `
+        <div class="alert alert-success">
+            <p>Base Amount: ₹${baseAmount.toFixed(2)}</p>
+            <p>GST Amount (${gstRate}%): ₹${gstAmount.toFixed(2)}</p>
+            <p>Total Amount: ₹${totalAmount.toFixed(2)}</p>
+        </div>
+    `;
+}
+
+// EMI Calculator
+function calculateEMI() {
+    const principal = parseFloat(document.getElementById('loanAmount').value);
+    const annualRate = parseFloat(document.getElementById('interestRate').value);
+    const months = parseInt(document.getElementById('loanTerm').value);
+    const resultDiv = document.getElementById('emiResult');
+
+    if (isNaN(principal) || isNaN(annualRate) || isNaN(months)) {
+        resultDiv.innerHTML = '<div class="alert alert-danger">Please enter valid numbers</div>';
+        return;
+    }
+
+    const monthlyRate = annualRate / 12 / 100;
+    const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, months) / (Math.pow(1 + monthlyRate, months) - 1);
+    const totalAmount = emi * months;
+    const totalInterest = totalAmount - principal;
+
+    resultDiv.innerHTML = `
+        <div class="alert alert-success">
+            <p>Monthly EMI: ₹${emi.toFixed(2)}</p>
+            <p>Total Interest: ₹${totalInterest.toFixed(2)}</p>
+            <p>Total Amount: ₹${totalAmount.toFixed(2)}</p>
+        </div>
+    `;
+}
+</script>
+{% endblock %}
