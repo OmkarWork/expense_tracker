@@ -4,6 +4,12 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.http import HttpResponse
+from django.template.loader import get_template
+from django.http import HttpResponse
+from xhtml2pdf import pisa
+
+from django.conf import settings
 from .models import Expense, Category
 from django.db.models import Sum
 from django.utils import timezone
@@ -130,3 +136,49 @@ def add_expense(request):
         'today': now.date(),
         'now': now
     })
+
+
+# ------------------ BILL GENERATOR ------------------
+
+def render_to_pdf(template_src, context_dict={}):
+    template = get_template(template_src)
+    html  = template.render(context_dict)
+    result = HttpResponse(content_type='application/pdf')
+    pisa_status = pisa.CreatePDF(html, dest=result)
+    if pisa_status.err:
+        return HttpResponse('We had some errors <pre>' + html + '</pre>')
+    return result
+
+@login_required
+def generate_bill(request):
+    # get only current user's expenses and order them
+    expenses = Expense.objects.filter(user=request.user).order_by('-date', '-time')
+
+    # aggregate total (raw decimal)
+    total_raw = expenses.aggregate(total=Sum('amount'))['total'] or 0
+
+    # prepare formatted fields for template
+    for exp in expenses:
+        # formatted amount like "₹1,234.56"
+        exp.formatted_amount = format_indian_currency(exp.amount)
+
+        # formatted date/time for display
+        try:
+            exp.formatted_date = exp.date.strftime('%d %b %Y')
+        except Exception:
+            exp.formatted_date = str(exp.date) if exp.date else '-'
+        try:
+            exp.formatted_time = exp.time.strftime('%I:%M %p')
+        except Exception:
+            exp.formatted_time = str(exp.time) if exp.time else '-'
+
+    # formatted total for display
+    formatted_total = format_indian_currency(total_raw)
+
+    context = {
+        'expenses': expenses,
+        'total': formatted_total,   # string like "₹1,234.56"
+        'user': request.user,
+        'today': timezone.now().date()
+    }
+    return render_to_pdf('expenses/bill.html', context)
