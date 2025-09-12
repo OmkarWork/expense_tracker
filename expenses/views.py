@@ -8,7 +8,6 @@ from django.http import HttpResponse
 from django.template.loader import get_template
 from django.http import HttpResponse
 from xhtml2pdf import pisa
-
 from django.conf import settings
 from .models import Expense, Category
 from django.db.models import Sum
