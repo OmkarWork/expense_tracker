@@ -22,8 +22,6 @@ class Expense(models.Model):
 
     class Meta:
         ordering = ['-date', '-time']
-    date = models.DateField(default=timezone.now)
-    time = models.TimeField(default=timezone.now)
 
     def __str__(self):
         return f"{self.title} - {self.formatted_amount()}"

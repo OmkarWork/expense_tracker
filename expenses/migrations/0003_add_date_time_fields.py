@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
+        migrations.AlterField(
             model_name='expense',
             name='date',
             field=models.DateField(default=django.utils.timezone.now),
