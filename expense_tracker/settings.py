@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-&9zh9q=-giq4n@jg34o2rx&g!+u)dgx%vgby_655e*u8ak9e@4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*", ".onrender.com"]
 
 
 # Application definition
@@ -79,6 +79,7 @@ WSGI_APPLICATION = 'expense_tracker.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
+
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'HOST': 'aws-1-ap-south-1.pooler.supabase.com',
