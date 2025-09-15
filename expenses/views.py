@@ -6,9 +6,37 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 from django.template.loader import get_template
-from django.http import HttpResponse
-from xhtml2pdf import pisa
 from django.conf import settings
+import os
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Flowable
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPDF
+
+class SVGImage(Flowable):
+    def __init__(self, svg_drawing, width=35, height=35):
+        Flowable.__init__(self)
+        self.svg_drawing = svg_drawing
+        self.width = width
+        self.height = height
+        
+    def draw(self):
+        # Draw red circle background (matching --accent-color from base.html)
+        self.canv.setFillColor(colors.HexColor('#e74c3c'))
+        self.canv.circle(self.width/2, self.height/2, min(self.width, self.height)/2, fill=1)
+        
+        # Draw the SVG on top in white
+        self.canv.saveState()
+        self.canv.translate(2, 2)  # Slightly adjust position for better centering
+        renderPDF.draw(self.svg_drawing, self.canv, 0, 0)
+        self.canv.restoreState()
+
+    def wrap(self, *args):
+        return (self.width, self.height)
 from .models import Expense, Category
 from django.db.models import Sum
 from django.utils import timezone
@@ -139,14 +167,135 @@ def add_expense(request):
 
 # ------------------ BILL GENERATOR ------------------
 
+import os
+from PIL import Image
+from io import BytesIO
+from PyPDF2 import PdfReader, PdfWriter
+from django.conf import settings
+
 def render_to_pdf(template_src, context_dict={}):
-    template = get_template(template_src)
-    html  = template.render(context_dict)
-    result = HttpResponse(content_type='application/pdf')
-    pisa_status = pisa.CreatePDF(html, dest=result)
-    if pisa_status.err:
-        return HttpResponse('We had some errors <pre>' + html + '</pre>')
-    return result
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=50, bottomMargin=50, leftMargin=40, rightMargin=40)
+    elements = []
+    
+    # Create logo SVG content with white fill
+    svg_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" class="bi bi-currency-exchange" viewBox="0 0 16 16">
+  <path d="M0 5a5 5 0 0 0 4.027 4.905 6.5 6.5 0 0 1 .544-2.073C3.695 7.536 3.132 6.864 3 5.91h-.5v-.426h.466V5.05q-.001-.07.004-.135H2.5v-.427h.511C3.236 3.24 4.213 2.5 5.681 2.5c.316 0 .59.031.819.085v.733a3.5 3.5 0 0 0-.815-.082c-.919 0-1.538.466-1.734 1.252h1.917v.427h-1.98q-.004.07-.003.147v.422h1.983v.427H3.93c.118.602.468 1.03 1.005 1.229a6.5 6.5 0 0 1 4.97-3.113A5.002 5.002 0 0 0 0 5m16 5.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0m-7.75 1.322c.069.835.746 1.485 1.964 1.562V14h.54v-.62c1.259-.086 1.996-.74 1.996-1.69 0-.865-.563-1.31-1.57-1.54l-.426-.1V8.374c.54.06.884.347.966.745h.948c-.07-.804-.779-1.433-1.914-1.502V7h-.54v.629c-1.076.103-1.808.732-1.808 1.622 0 .787.544 1.288 1.45 1.493l.358.085v1.78c-.554-.08-.92-.376-1.003-.787zm1.96-1.895c-.532-.12-.82-.364-.82-.732 0-.41.311-.719.824-.809v1.54h-.005zm.622 1.044c.645.145.943.38.943.796 0 .474-.37.8-1.02.86v-1.674z"/>
+</svg>'''
+    
+    # Save SVG to temporary file
+    svg_file = BytesIO(svg_content.encode('utf-8'))
+    drawing = svg2rlg(svg_file)
+    
+    # Create header
+    styles = getSampleStyleSheet()
+    header_style = ParagraphStyle(
+        'CustomHeader',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30
+    )
+    
+    # Scale the drawing for better visibility
+    drawing.scale(1.2, 1.2)
+    
+    # Create table for logo and EXPO text side by side
+    header_table = Table([
+        [SVGImage(drawing), Paragraph("EXPO", header_style)]
+    ], colWidths=[35, None])
+    
+    header_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    
+    elements.append(header_table)
+    elements.append(Paragraph(f"Expense Bill", styles['Heading1']))
+    elements.append(Paragraph(f"User: {context_dict['user'].username}", styles['Normal']))
+    elements.append(Paragraph(f"Generated: {context_dict['today']}", styles['Normal']))
+    
+    # Create table data
+    table_data = [['Date', 'Time', 'Title', 'Category', 'Description', 'Amount (₹)']]
+    
+    for expense in context_dict['expenses']:
+        table_data.append([
+            expense.formatted_date,
+            expense.formatted_time,
+            expense.title,
+            expense.category.name if expense.category else '-',
+            expense.description or '-',
+            expense.formatted_amount
+        ])
+    
+    # Add total row
+    table_data.append(['', '', '', '', 'Total Amount', context_dict['total']])
+    
+    # Set column widths proportionally
+    col_widths = [80, 80, 100, 80, 150, 80]
+    
+    # Create table and style it
+    table = Table(table_data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        # Header style
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        
+        # Body style
+        ('FONTNAME', (0, 1), (-1, -2), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -2), 10),
+        ('TEXTCOLOR', (0, 1), (-1, -2), colors.black),
+        ('TOPPADDING', (0, 1), (-1, -2), 8),
+        ('BOTTOMPADDING', (0, 1), (-1, -2), 8),
+        ('BACKGROUND', (0, 1), (-1, -2), colors.white),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -2), [colors.white, colors.HexColor('#f8f9fa')]),
+        
+        # Total row style
+        ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0, -1), (-1, -1), colors.white),
+        ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+        ('TOPPADDING', (0, -1), (-1, -1), 12),
+        ('BOTTOMPADDING', (0, -1), (-1, -1), 12),
+        
+        # Grid style
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e0e0e0')),
+        
+        # Alignment
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (-1, 0), (-1, -1), 'RIGHT'),  # Right align all amounts
+        ('ALIGN', (-2, -1), (-1, -1), 'RIGHT'),  # Right align total row text
+    ]))
+    
+    elements.append(table)
+    
+    # Add footer
+    footer_style = ParagraphStyle(
+        'CustomFooter',
+        parent=styles['Normal'],
+        textColor=colors.gray,
+        fontSize=10,
+        spaceAfter=30,
+        alignment=1  # Center alignment
+    )
+    elements.append(Paragraph("<br/><br/>Thank you for using Expense Tracker", footer_style))
+    
+    # Build PDF
+    doc.build(elements)
+    
+    # Get the value of the BytesIO buffer and write it to the response
+    pdf = buffer.getvalue()
+    buffer.close()
+    response = HttpResponse(content_type='application/pdf')
+    response.write(pdf)
+    return response
 
 @login_required
 def generate_bill(request):
