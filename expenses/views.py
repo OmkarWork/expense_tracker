@@ -13,29 +13,61 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Flowable
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Flowable, Spacer
 from svglib.svglib import svg2rlg
 from reportlab.graphics import renderPDF
 
 class SVGImage(Flowable):
+    """
+    Custom Flowable class for rendering SVG images in ReportLab PDFs
+    Inherits from Flowable to integrate with ReportLab's document building process
+    
+    Features:
+    - Renders SVG with a circular background
+    - Supports custom dimensions
+    - Maintains aspect ratio
+    """
+    
     def __init__(self, svg_drawing, width=35, height=35):
+        """
+        Initialize SVG image with custom dimensions
+        
+        Args:
+            svg_drawing: SVG drawing object from svglib
+            width: Width of the image (default: 35 points)
+            height: Height of the image (default: 35 points)
+        """
         Flowable.__init__(self)
         self.svg_drawing = svg_drawing
         self.width = width
         self.height = height
         
     def draw(self):
+        """
+        Render the SVG image on the PDF canvas
+        
+        Process:
+        1. Draws a circular red background
+        2. Places the SVG image on top
+        3. Handles proper positioning and state management
+        """
         # Draw red circle background (matching --accent-color from base.html)
         self.canv.setFillColor(colors.HexColor('#e74c3c'))
         self.canv.circle(self.width/2, self.height/2, min(self.width, self.height)/2, fill=1)
         
         # Draw the SVG on top in white
-        self.canv.saveState()
-        self.canv.translate(2, 2)  # Slightly adjust position for better centering
+        self.canv.saveState()  # Save current graphics state
+        self.canv.translate(2, 2)  # Offset by 2 points for better centering
         renderPDF.draw(self.svg_drawing, self.canv, 0, 0)
-        self.canv.restoreState()
+        self.canv.restoreState()  # Restore graphics state
 
     def wrap(self, *args):
+        """
+        Define the space needed for this flowable
+        
+        Returns:
+            tuple: (width, height) in points
+        """
         return (self.width, self.height)
 from .models import Expense, Category
 from django.db.models import Sum
@@ -43,7 +75,22 @@ from django.utils import timezone
 
 @login_required
 def delete_expense(request, expense_id):
+    """
+    Delete a specific expense entry if it belongs to the requesting user.
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+        expense_id: Integer ID of the expense to delete
+    
+    Returns:
+        HttpResponseRedirect to the expense list page with a success/error message
+    
+    Security:
+        - Requires user authentication (@login_required)
+        - Verifies expense ownership before deletion
+    """
     try:
+        # Attempt to get expense that belongs to the current user
         expense = Expense.objects.get(id=expense_id, user=request.user)
         expense.delete()
         messages.success(request, 'Expense deleted successfully!')
@@ -53,9 +100,48 @@ def delete_expense(request, expense_id):
 
 @login_required
 def calculators(request):
+    """
+    Display the financial calculators page.
+    
+    This view renders a page with various financial calculators including:
+    - Basic Calculator
+    - Split Bill Calculator
+    - GST Calculator
+    - EMI Calculator
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+    
+    Returns:
+        HttpResponse rendering the calculators.html template
+    
+    Security:
+        - Requires user authentication (@login_required)
+    """
     return render(request, 'expenses/calculators.html')
 
 def signup(request):
+    """
+    Handle user registration.
+    
+    GET: Display the signup form
+    POST: Process the signup form data and create a new user
+    
+    Features:
+    - Password matching validation
+    - Username uniqueness check
+    - Django's built-in password validation
+    - Comprehensive error messaging
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+    
+    Returns:
+        HttpResponse: 
+        - On GET: renders signup form
+        - On POST success: redirects to login page
+        - On POST error: redisplays form with error messages
+    """
     if request.method == 'POST':
         username = request.POST.get('username')
         password1 = request.POST.get('password1')
@@ -87,6 +173,23 @@ def signup(request):
     return render(request, 'expenses/signup.html')
 
 def home(request):
+    """
+    Display the home page dashboard.
+    
+    For authenticated users, shows recent expenses.
+    For anonymous users, shows general welcome page.
+    
+    Features:
+    - Displays 5 most recent expenses for logged-in users
+    - Formats currency amounts in Indian Rupee format
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+    
+    Returns:
+        HttpResponse rendering the home.html template with context
+        containing recent expenses (if user is authenticated)
+    """
     context = {}
     if request.user.is_authenticated:
         recent_expenses = Expense.objects.filter(user=request.user)[:5]
@@ -96,17 +199,62 @@ def home(request):
     return render(request, 'expenses/home.html', context)
 
 def format_indian_currency(amount):
-    """Format amount in Indian numbering system"""
+    """
+    Formats a numerical amount into Indian currency format with Rs. symbol
+    
+    Args:
+        amount: A numerical value (int/float) or string that can be converted to float
+        
+    Returns:
+        str: Formatted string in the format "(Rs. X,XXX.XX)"
+             For negative amounts: "-(Rs. X,XXX.XX)"
+    
+    Example:
+        format_indian_currency(1234.56) -> "(Rs. 1,234.56)"
+        format_indian_currency(-1234.56) -> "-(Rs. 1,234.56)"
+        format_indian_currency("invalid") -> "(Rs. 0.00)"
+    """
     try:
+        # Convert input to float (handles both string and numeric inputs)
         amount = float(amount)
+        
+        # Handle negative amounts
         if amount < 0:
-            return f"-₹{abs(amount):,.2f}"
-        return f"₹{amount:,.2f}"
+            return f"-(Rs. {abs(amount):,.2f})"  # Use abs() to show positive number after minus sign
+        
+        # Handle positive amounts
+        return f"(Rs. {amount:,.2f})"  # .2f ensures 2 decimal places
+    
     except (ValueError, TypeError):
-        return "₹0.00"
+        # Return default format if conversion fails
+        return "(Rs. 0.00)"
 
 @login_required
 def expense_list(request):
+    """
+    Display a list of all expenses for the current user.
+    
+    Features:
+    - Dynamic sorting by multiple fields
+    - Total expenses calculation
+    - Currency formatting for amounts
+    - Category filtering options
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+        - Optional query parameter 'sort' for specifying sort field
+    
+    Returns:
+        HttpResponse rendering the expense_list.html template with context:
+        - expenses: QuerySet of Expense objects
+        - total: Formatted total amount
+        - categories: Available expense categories
+        - current_sort: Current sort field
+    
+    Security:
+        - Requires user authentication (@login_required)
+        - Only shows expenses belonging to the current user
+    """
     # Get the sort parameter from request, default to '-date'
     sort_by = request.GET.get('sort', '-date')
     valid_sort_fields = ['amount', '-amount', 'title', '-title', 'category', '-category', 'date', '-date']
@@ -132,6 +280,38 @@ def expense_list(request):
 
 @login_required
 def add_expense(request):
+    """
+    Handle expense creation.
+    
+    GET: Display the add expense form
+    POST: Process the form data and create a new expense
+    
+    Features:
+    - Category selection
+    - Optional description
+    - Date and time fields with current defaults
+    - Error handling for invalid inputs
+    
+    Args:
+        request: HttpRequest object containing metadata about the request
+        
+    Form Fields:
+        - title: Name/description of the expense
+        - amount: Monetary value
+        - category: Selected expense category
+        - description: Optional detailed notes
+        - date: Date of expense (defaults to today)
+        - time: Time of expense (defaults to now)
+    
+    Returns:
+        HttpResponse: 
+        - On GET: renders add_expense form
+        - On POST success: redirects to expense list
+        - On POST error: redisplays form with error messages
+    
+    Security:
+        - Requires user authentication (@login_required)
+    """
     if request.method == 'POST':
         title = request.POST.get('title')
         amount = request.POST.get('amount')
@@ -170,11 +350,29 @@ def add_expense(request):
 import os
 from PIL import Image
 from io import BytesIO
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 from django.conf import settings
 
 def render_to_pdf(template_src, context_dict={}):
+    """
+    Generates a PDF document from a template and context data
+    
+    Args:
+        template_src: Template path (not used in current implementation)
+        context_dict: Dictionary containing data for PDF generation
+                     Required keys: 'user', 'expenses', 'total', 'today'
+    
+    Returns:
+        HttpResponse: PDF file as a response with appropriate content type
+    """
+    # Create a buffer to receive PDF data
     buffer = BytesIO()
+    
+    # Import necessary modules for PDF generation
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+    from reportlab.lib.fonts import addMapping
+    
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=50, bottomMargin=50, leftMargin=40, rightMargin=40)
     elements = []
     
@@ -194,7 +392,8 @@ def render_to_pdf(template_src, context_dict={}):
         'CustomHeader',
         parent=styles['Heading1'],
         fontSize=24,
-        spaceAfter=30
+        spaceAfter=30,
+        fontName='Helvetica-Bold'
     )
     
     # Scale the drawing for better visibility
@@ -215,12 +414,15 @@ def render_to_pdf(template_src, context_dict={}):
     ]))
     
     elements.append(header_table)
+    elements.append(Spacer(1, 30))  # Add 30 points of vertical space after logo
     elements.append(Paragraph(f"Expense Bill", styles['Heading1']))
+    elements.append(Spacer(1, 20))  # Add 20 points of vertical space after title
     elements.append(Paragraph(f"User: {context_dict['user'].username}", styles['Normal']))
     elements.append(Paragraph(f"Generated: {context_dict['today']}", styles['Normal']))
+    elements.append(Spacer(1, 20))  # Add 20 points of vertical space before table
     
     # Create table data
-    table_data = [['Date', 'Time', 'Title', 'Category', 'Description', 'Amount (₹)']]
+    table_data = [['Date', 'Time', 'Title', 'Category', 'Description', 'Amount (Rs.)']]
     
     for expense in context_dict['expenses']:
         table_data.append([
@@ -275,6 +477,7 @@ def render_to_pdf(template_src, context_dict={}):
     ]))
     
     elements.append(table)
+    elements.append(Spacer(1, 30))  # Add 30 points of vertical space after table
     
     # Add footer
     footer_style = ParagraphStyle(
@@ -283,6 +486,7 @@ def render_to_pdf(template_src, context_dict={}):
         textColor=colors.gray,
         fontSize=10,
         spaceAfter=30,
+        fontName='Helvetica',
         alignment=1  # Center alignment
     )
     elements.append(Paragraph("<br/><br/>Thank you for using Expense Tracker", footer_style))
@@ -299,10 +503,23 @@ def render_to_pdf(template_src, context_dict={}):
 
 @login_required
 def generate_bill(request):
-    # get only current user's expenses and order them
+    """
+    View function to generate a PDF bill of user's expenses
+    
+    Process:
+    1. Retrieves user's expenses from database
+    2. Formats all dates, times and amounts
+    3. Calculates total amount
+    4. Generates PDF using render_to_pdf function
+    
+    Returns:
+        HttpResponse: PDF file as response
+    """
+    # Get current user's expenses ordered by date and time (newest first)
     expenses = Expense.objects.filter(user=request.user).order_by('-date', '-time')
 
-    # aggregate total (raw decimal)
+    # Calculate total amount of all expenses
+    # Uses aggregate with Sum, returns 0 if no expenses found
     total_raw = expenses.aggregate(total=Sum('amount'))['total'] or 0
 
     # prepare formatted fields for template

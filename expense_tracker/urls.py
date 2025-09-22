@@ -22,17 +22,27 @@ from django.urls import reverse_lazy
 from django.views.generic import RedirectView
 from expenses import views as expense_views
 
+# Main URL patterns for the entire project
 urlpatterns = [
+    # Django admin interface
     path('admin/', admin.site.urls),
+    
+    # Include all URLs from the expenses app under the root path
     path('', include(('expenses.urls', 'expenses'), namespace='expenses')),
+    
+    # User authentication views
     path('login/', auth_views.LoginView.as_view(
         template_name='expenses/login.html',
-        redirect_authenticated_user=True,
-        next_page='expenses:home'
+        redirect_authenticated_user=True,  # Redirect if user is already logged in
+        next_page='expenses:home'  # Redirect to home page after login
     ), name='login'),
+    
+    # User logout view
     path('logout/', auth_views.LogoutView.as_view(
         template_name='expenses/logged_out.html',
-        next_page='expenses:home'
+        next_page='expenses:home'  # Redirect to home page after logout
     ), name='logout'),
+    
+    # User registration view
     path('signup/', expense_views.signup, name='signup'),
 ]
